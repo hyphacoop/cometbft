@@ -36,6 +36,7 @@ import (
 	"github.com/cometbft/cometbft/store"
 	"github.com/cometbft/cometbft/types"
 	"github.com/cometbft/cometbft/version"
+	"github.com/tidwall/sjson"
 
 	_ "github.com/lib/pq" // provide the psql db driver
 )
@@ -607,6 +608,13 @@ func saveGenesisDoc(db dbm.DB, genDoc *types.GenesisDoc) error {
 	b, err := cmtjson.Marshal(genDoc)
 	if err != nil {
 		return fmt.Errorf("failed to save genesis doc due to marshaling error: %w", err)
+	}
+	// 4GB limit for writes to the database
+	if len(b) > 4*1024*1024*1024 {
+		b, err = sjson.DeleteBytes(b, "app_state")
+		if err != nil {
+			return fmt.Errorf("failed to drop app_state from genesis: %w", err)
+		}
 	}
 	return db.SetSync(genesisDocKey, b)
 }
